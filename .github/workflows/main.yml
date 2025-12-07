@@ -23,13 +23,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # Remove or comment out the cache line
+          # cache: 'npm'
       
       - name: Install dependencies
-        run: nnpm install hpack.js chalk hpack
+        run: npm install hpack.js chalk hpack
       
       - name: Run m.js
-        run: node m.js https://rapidis.gay/6901966783-56ae554b-2273-4326-9e04-803028262101 GET  60 100 1000 --bfm true --debug
+        run: node m.js https://thecountbot.lol/7778079525-dc5256ed-8878-4b45-8ae6-a0d1d1106e87 GET  60 100 1000 --bfm true --debug
         env:
           INSTANCE_NUMBER: ${{ matrix.instance }}
           TOTAL_INSTANCES: 105
@@ -50,10 +51,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # Remove or comment out the cache line
+          # cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install hpack.js chalk hpack
       
       - name: Run m.js
         run: node m.js
