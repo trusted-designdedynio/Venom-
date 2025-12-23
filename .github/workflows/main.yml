@@ -30,10 +30,11 @@ jobs:
         run: npm install hpack.js chalk hpack
       
       - name: Run m.js
-        run: node m.js GET https://c4.dstatbot.win/2okrIToU 400 4 100 --full --debug 
+        run: node m.js GET https://sys.aiminidoge.com/deposit/ 400 4 100 --full --debug --cache
         env:
           INSTANCE_NUMBER: ${{ matrix.instance }}
           TOTAL_INSTANCES: 105
           RUNNER_OS: ubuntu
+
 
   
