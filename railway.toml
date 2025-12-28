@@ -1,0 +1,5 @@
+# railway.toml - Put this in your project folder
+[build]
+builder = "nixpacks"
+buildCommand = "npm install"
+startCommand = "node m.js"
