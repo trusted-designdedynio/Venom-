@@ -1,0 +1,9 @@
+{
+  "name": "m-app",
+  "version": "1.0.0",
+  "private": true,
+  "main": "m.js",
+  "scripts": {
+    "start": "node m.js"
+  }
+}
