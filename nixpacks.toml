@@ -1,6 +1,13 @@
 [phases.setup]
 nixPkgs = [
   "nodejs_20",
+
+  # ✅ Full Python stack
+  "python311",
+  "python311Packages.pip",
+  "python311Packages.virtualenv",
+
+  # Browser + X11
   "chromium",
   "xvfb-run",
   "xorg.xorgserver",
@@ -22,6 +29,9 @@ nixPkgs = [
   "alsa-lib",
   "gtk3"
 ]
+
+[phases.install]
+cmd = "pip install requests"
 
 [phases.start]
 cmd = "npm start"
