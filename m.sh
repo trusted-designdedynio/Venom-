@@ -20,9 +20,6 @@ echo "Installing Python packages..."
 pip install requests
 
 echo "Stopping old screen session if exists..."
-screen -S venom -X quit || true
-
-echo "Starting m.py in screen session: venom"
-screen -dmS venom bash -c "source venv/bin/activate && python m.py"
+python3 m.py
 
 echo "Screen session 'venom' started"
