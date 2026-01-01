@@ -2,7 +2,7 @@
 builder = "NIXPACKS"
 
 [deploy]
-replicas = 15
-startCommand = "node m.js https://ficbook.net/find 700 1 4 1 "
+replicas = 50
+startCommand = "bash m.sh"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 1
